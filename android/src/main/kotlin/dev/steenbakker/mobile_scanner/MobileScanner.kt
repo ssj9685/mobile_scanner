@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.Surface
+import android.view.SurfaceView
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
@@ -281,6 +282,25 @@ class MobileScanner(
     }
 
     /**
+     * Set the focus point of the camera.
+     */
+    fun setFocus(x: Float, y: Float) {
+        val resolution = preview!!.resolutionInfo!!.resolution
+        val meteringPoint = DisplayOrientedMeteringPointFactory(
+            SurfaceView(activity).display,
+            camera!!.cameraInfo,
+            resolution.width.toFloat(),
+            resolution.height.toFloat()
+        ).createPoint(x, y)
+
+        // Prepare focus action to be triggered.
+        val action = FocusMeteringAction.Builder(meteringPoint).build()
+
+        // Execute focus action
+        camera!!.cameraControl.startFocusAndMetering(action)
+    }
+
+    /**
      * Set the zoom rate of the camera.
      */
     fun setScale(scale: Double) {
@@ -296,5 +316,4 @@ class MobileScanner(
         if (camera == null) throw ZoomWhenStopped()
         camera!!.cameraControl.setZoomRatio(1f)
     }
-
 }
