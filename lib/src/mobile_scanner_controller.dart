@@ -305,6 +305,31 @@ class MobileScannerController {
         .then<bool>((bool? value) => value ?? false);
   }
 
+  /// Set the focus of the camera.
+  Future<void> setFocus(Map<String, double> point) async {
+    final x = point["x"];
+    final y = point["y"];
+
+    if (x == null || y == null) {
+      throw const MobileScannerException(
+        errorCode: MobileScannerErrorCode.genericError,
+        errorDetails: MobileScannerErrorDetails(
+          message: 'The point must have an x and y value.',
+        ),
+      );
+    }
+
+    if (x < 0 || y < 0) {
+      throw const MobileScannerException(
+        errorCode: MobileScannerErrorCode.genericError,
+        errorDetails: MobileScannerErrorDetails(
+          message: 'The point must be larger than 0.',
+        ),
+      );
+    }
+    await _methodChannel.invokeMethod('setFocus', point);
+  }
+
   /// Set the zoomScale of the camera.
   ///
   /// [zoomScale] must be within 0.0 and 1.0, where 1.0 is the max zoom, and 0.0

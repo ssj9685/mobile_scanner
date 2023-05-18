@@ -284,7 +284,10 @@ class MobileScanner(
     /**
      * Set the focus point of the camera.
      */
-    fun setFocus(x: Float, y: Float) {
+    fun setFocus(point: Map<String, Double>) {
+        val x = point["x"]!!.toFloat()
+        val y = point["y"]!!.toFloat()
+
         val resolution = preview!!.resolutionInfo!!.resolution
         val meteringPoint = DisplayOrientedMeteringPointFactory(
             SurfaceView(activity).display,
