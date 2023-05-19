@@ -118,6 +118,7 @@ class MobileScannerHandler(
             "torch" -> toggleTorch(call, result)
             "stop" -> stop(result)
             "analyzeImage" -> analyzeImage(call, result)
+            "setFocus" -> setFocus(call, result)
             "setScale" -> setScale(call, result)
             "resetScale" -> resetScale(call, result)
             "updateScanWindow" -> updateScanWindow(call)
@@ -220,6 +221,15 @@ class MobileScannerHandler(
             result.success(null)
         } catch (e: AlreadyStopped) {
             result.error("MobileScanner", "Called toggleTorch() while stopped!", null)
+        }
+    }
+
+    private fun setFocus(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            mobileScanner!!.setFocus(call.arguments as Map<String, Double>)
+            result.success(null)
+        } catch (e: FocusWhenStopped) {
+            result.error("MobileScanner", "Focus position must have positive values", null)
         }
     }
 
