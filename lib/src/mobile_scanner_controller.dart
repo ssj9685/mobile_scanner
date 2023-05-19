@@ -306,18 +306,11 @@ class MobileScannerController {
   }
 
   /// Set the focus of the camera.
-  Future<void> setFocus(Map<String, double> point) async {
-    final x = point["x"];
-    final y = point["y"];
-
-    if (x == null || y == null) {
-      throw const MobileScannerException(
-        errorCode: MobileScannerErrorCode.genericError,
-        errorDetails: MobileScannerErrorDetails(
-          message: 'The point must have an x and y value.',
-        ),
-      );
-    }
+  Future<void> setFocus(double x, double y) async {
+    final Map<String, double> point = {
+      "x": x,
+      "y": y,
+    };
 
     if (x < 0 || y < 0) {
       throw const MobileScannerException(
@@ -327,6 +320,7 @@ class MobileScannerController {
         ),
       );
     }
+
     await _methodChannel.invokeMethod('setFocus', point);
   }
 

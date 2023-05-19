@@ -288,12 +288,17 @@ class MobileScanner(
         val x = point["x"]!!.toFloat()
         val y = point["y"]!!.toFloat()
 
+        val display = SurfaceView(activity).display
+        val cameraInfo = camera!!.cameraInfo
         val resolution = preview!!.resolutionInfo!!.resolution
+        val width = resolution.width.toFloat()
+        val height = resolution.height.toFloat()
+
         val meteringPoint = DisplayOrientedMeteringPointFactory(
-            SurfaceView(activity).display,
-            camera!!.cameraInfo,
-            resolution.width.toFloat(),
-            resolution.height.toFloat()
+            display,
+            cameraInfo,
+            width,
+            height
         ).createPoint(x, y)
 
         // Prepare focus action to be triggered.
