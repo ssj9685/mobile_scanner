@@ -278,7 +278,15 @@ public class MobileScanner: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             var y = point["y"] ?? 0.0
             var point = CGPoint(x: x, y: y)
             
-            device.focusPointOfInterest = point
+            
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = point
+            }
+            
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            
             device.unlockForConfiguration()
         } catch {
             throw MobileScannerError.cameraError(error)
