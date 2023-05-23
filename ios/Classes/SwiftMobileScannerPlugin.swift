@@ -85,6 +85,8 @@ public class SwiftMobileScannerPlugin: NSObject, FlutterPlugin {
             toggleTorch(call, result)
         case "analyzeImage":
             analyzeImage(call, result)
+        case "setFocus":
+            setFocus(call, result)
         case "setScale":
             setScale(call, result)
         case "resetScale":
@@ -160,6 +162,32 @@ public class SwiftMobileScannerPlugin: NSObject, FlutterPlugin {
         } catch {
             result(FlutterError(code: "MobileScanner",
                                 message: "Called toggleTorch() while stopped!",
+                                details: nil))
+        }
+        result(nil)
+    }
+    
+    private func setFocus(_ call: FlutterMethodCall, _ result: @escaping FlutterResult){
+        var point = call.arguments as? Dictionary<String, Double>
+        if (point == nil) {
+            result(FlutterError(code: "MobileScanner",
+                                message: "You must provide a scale when calling setScale!",
+                                details: nil))
+            return
+        }
+        do {
+            try mobileScanner.setFocus(point!)
+        } catch MobileScannerError.focusWhenStopped {
+            result(FlutterError(code: "MobileScanner",
+                                message: "Called setFocus() while stopped!",
+                                details: nil))
+        } catch MobileScannerError.cameraError(let error){
+            result(FlutterError(code: "MobileScanner",
+                                message: "Error occured when setting up camera!",
+                                details: error))
+        } catch {
+            result(FlutterError(code: "MobileScanner",
+                                message: "Error while focusing.",
                                 details: nil))
         }
         result(nil)

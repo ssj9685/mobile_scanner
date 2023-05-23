@@ -267,6 +267,24 @@ public class MobileScanner: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         }
     }
     
+    func setFocus(_ point: Dictionary<String, Double>) throws {
+        if (device == nil) {
+            throw MobileScannerError.focusWhenStopped
+        }
+        
+        do {
+            try device.lockForConfiguration()
+            var x = point["x"] ?? 0.0
+            var y = point["y"] ?? 0.0
+            var point = CGPoint(x: x, y: y)
+            
+            device.focusPointOfInterest = point
+            device.unlockForConfiguration()
+        } catch {
+            throw MobileScannerError.cameraError(error)
+        }
+    }
+    
     /// Set the zoom factor of the camera
     func setScale(_ scale: CGFloat) throws {
         if (device == nil) {

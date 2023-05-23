@@ -13,6 +13,7 @@ enum MobileScannerError: Error {
     case torchError(_ error: Error)
     case cameraError(_ error: Error)
     case torchWhenStopped
+    case focusWhenStopped
     case zoomWhenStopped
     case zoomError(_ error: Error)
     case analyzerError(_ error: Error)
