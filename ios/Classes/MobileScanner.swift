@@ -274,17 +274,35 @@ public class MobileScanner: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
         
         do {
             try device.lockForConfiguration()
-            var x = point["x"] ?? 0.0
-            var y = point["y"] ?? 0.0
-            var point = CGPoint(x: x, y: y)
             
+            var size = latestBuffer.image.size
+            
+            //For landscape size
+            var width = size.height
+            var height = size.width
+            
+            var touch_x = (point["x"] ?? 0.0)
+            var touch_y = (point["y"] ?? 0.0)
+            
+            var x = touch_x / width
+            var y = touch_y / height
+            
+            var point = CGPoint(x: x, y: y)
             
             if device.isFocusPointOfInterestSupported {
                 device.focusPointOfInterest = point
             }
             
+            if device.isExposurePointOfInterestSupported{
+                device.exposurePointOfInterest = point
+            }
+            
             if device.isFocusModeSupported(.continuousAutoFocus) {
                 device.focusMode = .continuousAutoFocus
+            }
+            
+            if device.isExposureModeSupported(.continuousAutoExposure){
+                device.exposureMode = .continuousAutoExposure
             }
             
             device.unlockForConfiguration()
