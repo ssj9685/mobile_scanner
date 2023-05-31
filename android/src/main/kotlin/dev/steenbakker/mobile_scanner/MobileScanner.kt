@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.Surface
-import android.view.SurfaceView
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
@@ -288,17 +287,14 @@ class MobileScanner(
         val x = point["x"]!!.toFloat()
         val y = point["y"]!!.toFloat()
 
-        val display = SurfaceView(activity).display
-        val cameraInfo = camera!!.cameraInfo
+        val portrait = camera!!.cameraInfo.sensorRotationDegrees % 180 == 0
         val resolution = preview!!.resolutionInfo!!.resolution
         val width = resolution.width.toFloat()
         val height = resolution.height.toFloat()
 
-        val meteringPoint = DisplayOrientedMeteringPointFactory(
-            display,
-            cameraInfo,
-            width,
-            height
+        val meteringPoint = SurfaceOrientedMeteringPointFactory(
+            if (portrait) width else height,
+            if (portrait) height else width
         ).createPoint(x, y)
 
         // Prepare focus action to be triggered.
