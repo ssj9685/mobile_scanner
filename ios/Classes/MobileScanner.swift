@@ -277,9 +277,9 @@ public class MobileScanner: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
             
             var size = latestBuffer.image.size
             
-            //For landscape size
-            var width = size.height
-            var height = size.width
+            var portrait = UIDevice.current.orientation.isPortrait
+            var width = portrait ? size.width : size.height
+            var height = portrait ? size.height : size.width
             
             var touch_x = (point["x"] ?? 0.0)
             var touch_y = (point["y"] ?? 0.0)
