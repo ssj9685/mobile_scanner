@@ -171,7 +171,7 @@ public class SwiftMobileScannerPlugin: NSObject, FlutterPlugin {
         var point = call.arguments as? Dictionary<String, Double>
         if (point == nil) {
             result(FlutterError(code: "MobileScanner",
-                                message: "You must provide a scale when calling setScale!",
+                                message: "You must provide a scale when calling setFocus!",
                                 details: nil))
             return
         }
