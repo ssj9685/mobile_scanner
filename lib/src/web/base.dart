@@ -3,6 +3,7 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:js/js.dart';
 import 'package:js/js_util.dart';
+import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/web/media.dart';
@@ -38,9 +39,6 @@ abstract class WebBarcodeReaderBase {
 
   int get videoWidth;
   int get videoHeight;
-
-  /// JS libraries to be injected into html page.
-  List<JsLibrary> get jsLibraries;
 
   /// Starts streaming video
   Future<void> start({
@@ -83,7 +81,7 @@ mixin InternalStreamCreation on WebBarcodeReaderBase {
         'video': VideoOptions(
           facingMode:
               cameraFacing == CameraFacing.front ? 'user' : 'environment',
-        )
+        ),
       };
     } else {
       constraints = {'video': true};
@@ -128,10 +126,8 @@ mixin InternalTorchDetection on InternalStreamCreation {
         final photoCapabilities = await promiseToFuture<PhotoCapabilities>(
           imageCapture.getPhotoCapabilities(),
         );
-        final fillLightMode = photoCapabilities.fillLightMode;
-        if (fillLightMode != null) {
-          return fillLightMode;
-        }
+
+        return photoCapabilities.fillLightMode;
       }
     } catch (e) {
       // ImageCapture is not supported by some browsers:
@@ -152,8 +148,8 @@ mixin InternalTorchDetection on InternalStreamCreation {
       final track = localMediaStream?.getVideoTracks();
       await track?.first.applyConstraints({
         'advanced': [
-          {'torch': enabled}
-        ]
+          {'torch': enabled},
+        ],
       });
     }
   }
@@ -165,9 +161,16 @@ class Promise<T> {}
 
 @JS()
 @anonymous
-class PhotoCapabilities {
+@staticInterop
+class PhotoCapabilities {}
+
+extension PhotoCapabilitiesExtension on PhotoCapabilities {
+  @JS('fillLightMode')
+  external List<dynamic>? get _fillLightMode;
+
   /// Returns an array of available fill light options. Options include auto, off, or flash.
-  external List<String>? get fillLightMode;
+  List<String> get fillLightMode =>
+      _fillLightMode?.cast<String>() ?? <String>[];
 }
 
 @JS('ImageCapture')

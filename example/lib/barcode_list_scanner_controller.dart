@@ -4,10 +4,10 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner_example/scanner_error_widget.dart';
 
 class BarcodeListScannerWithController extends StatefulWidget {
-  const BarcodeListScannerWithController({Key? key}) : super(key: key);
+  const BarcodeListScannerWithController({super.key});
 
   @override
-  _BarcodeListScannerWithControllerState createState() =>
+  State<BarcodeListScannerWithController> createState() =>
       _BarcodeListScannerWithControllerState();
 }
 
@@ -50,6 +50,7 @@ class _BarcodeListScannerWithControllerState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('With ValueListenableBuilder')),
       backgroundColor: Colors.black,
       body: Builder(
         builder: (context) {
@@ -81,16 +82,10 @@ class _BarcodeListScannerWithControllerState
                     children: [
                       IconButton(
                         color: Colors.white,
-                        icon: ValueListenableBuilder(
+                        icon: ValueListenableBuilder<TorchState>(
                           valueListenable: controller.torchState,
                           builder: (context, state, child) {
-                            if (state == null) {
-                              return const Icon(
-                                Icons.flash_off,
-                                color: Colors.grey,
-                              );
-                            }
-                            switch (state as TorchState) {
+                            switch (state) {
                               case TorchState.off:
                                 return const Icon(
                                   Icons.flash_off,
@@ -133,13 +128,10 @@ class _BarcodeListScannerWithControllerState
                       ),
                       IconButton(
                         color: Colors.white,
-                        icon: ValueListenableBuilder(
+                        icon: ValueListenableBuilder<CameraFacing>(
                           valueListenable: controller.cameraFacingState,
                           builder: (context, state, child) {
-                            if (state == null) {
-                              return const Icon(Icons.camera_front);
-                            }
-                            switch (state as CameraFacing) {
+                            switch (state) {
                               case CameraFacing.front:
                                 return const Icon(Icons.camera_front);
                               case CameraFacing.back:

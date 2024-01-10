@@ -5,10 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:mobile_scanner/mobile_scanner_web.dart';
-import 'package:mobile_scanner/src/barcode_utility.dart';
+import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
-import 'package:mobile_scanner/src/objects/barcode.dart';
-import 'package:mobile_scanner/src/web/utils.dart';
 
 /// This plugin is the web implementation of mobile_scanner.
 /// It only supports QR codes.
@@ -25,8 +23,6 @@ class MobileScannerWebPlugin {
       registrar,
     );
     final MobileScannerWebPlugin instance = MobileScannerWebPlugin();
-
-    _jsLibrariesLoadingFuture = injectJSLibraries(barCodeReader.jsLibraries);
 
     channel.setMethodCallHandler(instance.handleMethodCall);
     event.setController(instance.controller);
@@ -55,11 +51,8 @@ class MobileScannerWebPlugin {
       ZXingBarcodeReader(videoContainer: vidDiv);
   StreamSubscription? _barCodeStreamSubscription;
 
-  static late Future _jsLibrariesLoadingFuture;
-
   /// Handle incomming messages
   Future<dynamic> handleMethodCall(MethodCall call) async {
-    await _jsLibrariesLoadingFuture;
     switch (call.method) {
       case 'start':
         return _start(call.arguments as Map);
@@ -67,6 +60,8 @@ class MobileScannerWebPlugin {
         return _torch(call.arguments);
       case 'stop':
         return cancel();
+      case 'updateScanWindow':
+        return Future<void>.value();
       default:
         throw PlatformException(
           code: 'Unimplemented',
@@ -114,15 +109,17 @@ class MobileScannerWebPlugin {
       if (arguments.containsKey('formats')) {
         formats = (arguments['formats'] as List)
             .cast<int>()
-            .map((e) => toFormat(e))
+            .map(BarcodeFormat.fromRawValue)
             .toList();
       }
+
       final Duration? detectionTimeout;
       if (arguments.containsKey('timeout')) {
         detectionTimeout = Duration(milliseconds: arguments['timeout'] as int);
       } else {
         detectionTimeout = null;
       }
+
       await barCodeReader.start(
         cameraFacing: cameraFacing,
         formats: formats,
@@ -138,14 +135,23 @@ class MobileScannerWebPlugin {
               'rawValue': code.rawValue,
               'rawBytes': code.rawBytes,
               'format': code.format.rawValue,
+              'displayValue': code.displayValue,
+              'type': code.type.rawValue,
+              if (code.corners.isNotEmpty)
+                'corners': code.corners
+                    .map(
+                      (Offset c) => <Object?, Object?>{'x': c.dx, 'y': c.dy},
+                    )
+                    .toList(),
             },
           });
         }
       });
+
       final hasTorch = await barCodeReader.hasTorch();
 
       if (hasTorch && arguments.containsKey('torch')) {
-        barCodeReader.toggleTorch(enabled: arguments['torch'] as bool);
+        await barCodeReader.toggleTorch(enabled: arguments['torch'] as bool);
       }
 
       return {
@@ -154,8 +160,12 @@ class MobileScannerWebPlugin {
         'videoHeight': barCodeReader.videoHeight,
         'torchable': hasTorch,
       };
-    } catch (e) {
-      throw PlatformException(code: 'MobileScannerWeb', message: '$e');
+    } catch (e, stackTrace) {
+      throw PlatformException(
+        code: 'MobileScannerWeb',
+        message: '$e',
+        details: stackTrace.toString(),
+      );
     }
   }
 

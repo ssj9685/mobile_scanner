@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'package:mobile_scanner_example/scanner_error_widget.dart';
+
 class BarcodeScannerWithZoom extends StatefulWidget {
-  const BarcodeScannerWithZoom({Key? key}) : super(key: key);
+  const BarcodeScannerWithZoom({super.key});
 
   @override
-  _BarcodeScannerWithZoomState createState() => _BarcodeScannerWithZoomState();
+  State<BarcodeScannerWithZoom> createState() => _BarcodeScannerWithZoomState();
 }
 
 class _BarcodeScannerWithZoomState extends State<BarcodeScannerWithZoom>
@@ -23,6 +25,7 @@ class _BarcodeScannerWithZoomState extends State<BarcodeScannerWithZoom>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('With zoom slider')),
       backgroundColor: Colors.black,
       body: Builder(
         builder: (context) {
@@ -31,6 +34,9 @@ class _BarcodeScannerWithZoomState extends State<BarcodeScannerWithZoom>
               MobileScanner(
                 controller: controller,
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, child) {
+                  return ScannerErrorWidget(error: error);
+                },
                 onDetect: (barcode) {
                   setState(() {
                     this.barcode = barcode;
@@ -59,16 +65,10 @@ class _BarcodeScannerWithZoomState extends State<BarcodeScannerWithZoom>
                         children: [
                           IconButton(
                             color: Colors.white,
-                            icon: ValueListenableBuilder(
+                            icon: ValueListenableBuilder<TorchState>(
                               valueListenable: controller.torchState,
                               builder: (context, state, child) {
-                                if (state == null) {
-                                  return const Icon(
-                                    Icons.flash_off,
-                                    color: Colors.grey,
-                                  );
-                                }
-                                switch (state as TorchState) {
+                                switch (state) {
                                   case TorchState.off:
                                     return const Icon(
                                       Icons.flash_off,
@@ -117,13 +117,10 @@ class _BarcodeScannerWithZoomState extends State<BarcodeScannerWithZoom>
                           ),
                           IconButton(
                             color: Colors.white,
-                            icon: ValueListenableBuilder(
+                            icon: ValueListenableBuilder<CameraFacing>(
                               valueListenable: controller.cameraFacingState,
                               builder: (context, state, child) {
-                                if (state == null) {
-                                  return const Icon(Icons.camera_front);
-                                }
-                                switch (state as CameraFacing) {
+                                switch (state) {
                                   case CameraFacing.front:
                                     return const Icon(Icons.camera_front);
                                   case CameraFacing.back:

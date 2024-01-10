@@ -2,6 +2,9 @@ package dev.steenbakker.mobile_scanner
 
 import android.app.Activity
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -29,11 +32,12 @@ class MobileScannerHandler(
                 "name" to "barcode",
                 "data" to barcodes
             ))
-            analyzerResult?.success(true)
-        } else {
-            analyzerResult?.success(false)
         }
-        analyzerResult = null
+
+        Handler(Looper.getMainLooper()).post {
+            analyzerResult?.success(barcodes != null)
+            analyzerResult = null
+        }
     }
 
     private var analyzerResult: MethodChannel.Result? = null
@@ -91,7 +95,6 @@ class MobileScannerHandler(
         if(listener != null) {
             activityPluginBinding.removeRequestPermissionsResultListener(listener)
         }
-
     }
 
     @ExperimentalGetImage
@@ -120,8 +123,8 @@ class MobileScannerHandler(
             "analyzeImage" -> analyzeImage(call, result)
             "setFocus" -> setFocus(call, result)
             "setScale" -> setScale(call, result)
-            "resetScale" -> resetScale(call, result)
-            "updateScanWindow" -> updateScanWindow(call)
+            "resetScale" -> resetScale(result)
+            "updateScanWindow" -> updateScanWindow(call, result)
             else -> result.notImplemented()
         }
     }
@@ -134,12 +137,18 @@ class MobileScannerHandler(
         val returnImage: Boolean = call.argument<Boolean>("returnImage") ?: false
         val speed: Int = call.argument<Int>("speed") ?: 1
         val timeout: Int = call.argument<Int>("timeout") ?: 250
+        val cameraResolutionValues: List<Int>? = call.argument<List<Int>>("cameraResolution")
+        val cameraResolution: Size? = if (cameraResolutionValues != null) {
+            Size(cameraResolutionValues[0], cameraResolutionValues[1])
+        } else {
+            null
+        }
 
         var barcodeScannerOptions: BarcodeScannerOptions? = null
         if (formats != null) {
             val formatsList: MutableList<Int> = mutableListOf()
-            for (index in formats) {
-                formatsList.add(BarcodeFormats.values()[index].intValue)
+            for (formatValue in formats) {
+                formatsList.add(BarcodeFormats.fromRawValue(formatValue).intValue)
             }
             barcodeScannerOptions = if (formatsList.size == 1) {
                 BarcodeScannerOptions.Builder().setBarcodeFormats(formatsList.first())
@@ -158,15 +167,26 @@ class MobileScannerHandler(
         val detectionSpeed: DetectionSpeed = DetectionSpeed.values().first { it.intValue == speed}
 
         try {
-            mobileScanner!!.start(barcodeScannerOptions, returnImage, position, torch, detectionSpeed, torchStateCallback, zoomScaleStateCallback, mobileScannerStartedCallback = {
-                result.success(mapOf(
-                    "textureId" to it.id,
-                    "size" to mapOf("width" to it.width, "height" to it.height),
-                    "torchable" to it.hasFlashUnit
-                ))
-            },
-                timeout.toLong())
-
+            mobileScanner!!.start(
+                barcodeScannerOptions,
+                returnImage, 
+                position,
+                torch,
+                detectionSpeed,
+                torchStateCallback,
+                zoomScaleStateCallback,
+                mobileScannerStartedCallback = {
+                    Handler(Looper.getMainLooper()).post {
+                        result.success(mapOf(
+                            "textureId" to it.id,
+                            "size" to mapOf("width" to it.width, "height" to it.height),
+                            "torchable" to it.hasFlashUnit
+                        ))
+                    }
+                },
+                timeout.toLong(),
+                cameraResolution,
+            )
         } catch (e: AlreadyStarted) {
             result.error(
                 "MobileScanner",
@@ -244,7 +264,7 @@ class MobileScannerHandler(
         }
     }
 
-    private fun resetScale(call: MethodCall, result: MethodChannel.Result) {
+    private fun resetScale(result: MethodChannel.Result) {
         try {
             mobileScanner!!.resetScale()
             result.success(null)
@@ -253,7 +273,9 @@ class MobileScannerHandler(
         }
     }
 
-    private fun updateScanWindow(call: MethodCall) {
+    private fun updateScanWindow(call: MethodCall, result: MethodChannel.Result) {
         mobileScanner!!.scanWindow = call.argument<List<Float>?>("rect")
+
+        result.success(null)
     }
 }

@@ -1,6 +1,8 @@
 package dev.steenbakker.mobile_scanner
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Handler
@@ -16,8 +18,16 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
 import dev.steenbakker.mobile_scanner.objects.MobileScannerStartParameters
+import dev.steenbakker.mobile_scanner.utils.YuvToRgbConverter
 import io.flutter.view.TextureRegistry
+import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
+import android.util.Size
+import android.hardware.display.DisplayManager
+import android.view.WindowManager
+import android.content.Context
+import android.os.Build
+
 
 class MobileScanner(
     private val activity: Activity,
@@ -34,6 +44,7 @@ class MobileScanner(
     private var scanner = BarcodeScanning.getClient()
     private var lastScanned: List<String?>? = null
     private var scannerTimeout = false
+    private var displayListener: DisplayManager.DisplayListener? = null
 
     /// Configurable variables
     var scanWindow: List<Float>? = null
@@ -82,13 +93,40 @@ class MobileScanner(
                     }
                 }
 
+
                 if (barcodeMap.isNotEmpty()) {
-                    mobileScannerCallback(
-                        barcodeMap,
-                        if (returnImage) mediaImage.toByteArray() else null,
-                        if (returnImage) mediaImage.width else null,
-                        if (returnImage) mediaImage.height else null
-                    )
+                    if (returnImage) {
+
+                        val bitmap = Bitmap.createBitmap(mediaImage.width, mediaImage.height, Bitmap.Config.ARGB_8888)
+
+                        val imageFormat = YuvToRgbConverter(activity.applicationContext)
+
+                        imageFormat.yuvToRgb(mediaImage, bitmap)
+
+                        val bmResult = rotateBitmap(bitmap, camera?.cameraInfo?.sensorRotationDegrees?.toFloat() ?: 90f)
+
+                        val stream = ByteArrayOutputStream()
+                        bmResult.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                        val byteArray = stream.toByteArray()
+                        bmResult.recycle()
+
+
+                        mobileScannerCallback(
+                            barcodeMap,
+                            byteArray,
+                            bmResult.width,
+                            bmResult.height
+                        )
+
+                    } else {
+
+                        mobileScannerCallback(
+                            barcodeMap,
+                            null,
+                            null,
+                            null
+                        )
+                    }
                 }
             }
             .addOnFailureListener { e ->
@@ -105,6 +143,13 @@ class MobileScanner(
             }, detectionTimeout)
         }
     }
+
+    private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(degrees)
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
 
     // scales the scanWindow to the provided inputImage and checks if that scaled
     // scanWindow contains the barcode
@@ -127,6 +172,34 @@ class MobileScanner(
         return scaledScanWindow.contains(barcodeBoundingBox)
     }
 
+    // Return the best resolution for the actual device orientation.
+    //
+    // By default the resolution is 480x640, which is too low for ML Kit.
+    // If the given resolution is not supported by the display,
+    // the closest available resolution is used.
+    //
+    // The resolution should be adjusted for the display rotation, to preserve the aspect ratio.
+    @Suppress("deprecation")
+    private fun getResolution(cameraResolution: Size): Size {
+        val rotation = if (Build.VERSION.SDK_INT >= 30) {
+            activity.display!!.rotation
+        } else {
+            val windowManager = activity.applicationContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+            windowManager.defaultDisplay.rotation
+        }
+
+        val widthMaxRes = cameraResolution.width
+        val heightMaxRes = cameraResolution.height
+
+        val targetResolution = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) {
+            Size(widthMaxRes, heightMaxRes) // Portrait mode
+        } else {
+            Size(heightMaxRes, widthMaxRes) // Landscape mode
+        }
+        return targetResolution
+    }
+
     /**
      * Start barcode scanning by initializing the camera and barcode scanner.
      */
@@ -140,7 +213,8 @@ class MobileScanner(
         torchStateCallback: TorchStateCallback,
         zoomScaleStateCallback: ZoomScaleStateCallback,
         mobileScannerStartedCallback: MobileScannerStartedCallback,
-        detectionTimeout: Long
+        detectionTimeout: Long,
+        cameraResolution: Size?
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
@@ -169,6 +243,10 @@ class MobileScanner(
 
             // Preview
             val surfaceProvider = Preview.SurfaceProvider { request ->
+                if (isStopped()) {
+                    return@SurfaceProvider
+                }
+
                 val texture = textureEntry!!.surfaceTexture()
                 texture.setDefaultBufferSize(
                     request.resolution.width,
@@ -186,7 +264,30 @@ class MobileScanner(
             // Build the analyzer to be passed on to MLKit
             val analysisBuilder = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-//                analysisBuilder.setTargetResolution(Size(1440, 1920))
+            val displayManager = activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+
+            if (cameraResolution != null) {
+                // TODO: migrate to ResolutionSelector with ResolutionStrategy when upgrading to camera 1.3.0
+                // Override initial resolution
+                analysisBuilder.setTargetResolution(getResolution(cameraResolution))
+
+                if (displayListener == null) {
+                    displayListener = object : DisplayManager.DisplayListener {
+                        override fun onDisplayAdded(displayId: Int) {}
+
+                        override fun onDisplayRemoved(displayId: Int) {}
+
+                        override fun onDisplayChanged(displayId: Int) {
+                            analysisBuilder.setTargetResolution(getResolution(cameraResolution))
+                        }
+                    }
+
+                    displayManager.registerDisplayListener(
+                        displayListener, null,
+                    )
+                }
+            }
+
             val analysis = analysisBuilder.build().apply { setAnalyzer(executor, captureOutput) }
 
             camera = cameraProvider!!.bindToLifecycle(
@@ -227,13 +328,19 @@ class MobileScanner(
         }, executor)
 
     }
-
     /**
      * Stop barcode scanning.
      */
     fun stop() {
-        if (camera == null && preview == null) {
+        if (isStopped()) {
             throw AlreadyStopped()
+        }
+
+        if (displayListener != null) {
+            val displayManager = activity.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+
+            displayManager.unregisterDisplayListener(displayListener)
+            displayListener = null
         }
 
         val owner = activity as LifecycleOwner
@@ -246,6 +353,8 @@ class MobileScanner(
         textureEntry = null
         cameraProvider = null
     }
+
+    private fun isStopped() = camera == null && preview == null
 
     /**
      * Toggles the flash light on or off.
